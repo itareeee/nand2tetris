@@ -13,5 +13,19 @@ CHIP Xor {
     OUT out;
 
     PARTS:
-    // Put your code here:
+    /** 
+     * Xor(a, b) 
+     * = And(Not(bothTrue), Not(bothFalse))
+     * = And(Not(And(a, b)), Not(And(Not(a), Not(b))))
+     */
+    Not(in=a, out=notA);
+    Not(in=b, out=notB);
+    And(a=notA, b=notB, out=bothFalse);
+    Not(in=bothFalse, out=notBothFalse);
+
+    And(a=a, b=b, out=bothTrue);
+    Not(in=bothTrue, out=notBothTrue);
+
+    And(a=notBothFalse, b=notBothTrue, out=out);
 }
+
