@@ -39,5 +39,66 @@ CHIP CPU {
         pc[15];          // address of next instruction
 
     PARTS:
-    // Put your code here:
+    // ====================
+    // decode for inst type
+    Not(in=instruction[15], out=instA);
+    Not(in=instA, out=instC);
+
+    // ==================
+    // decode for dest
+    // 1___ ____ __1_ ____
+    And(a=instC, b=instruction[5], out=destA);
+    // 1___ ____ ___1 ____
+    And(a=instC, b=instruction[4], out=loadD);
+    // 1___ ____ ____ 1___
+    And(a=instC, b=instruction[3], out=writeM);
+
+    // ==================
+    // A-Register
+    Mux16(a[15]=false, a[0..14]=instruction[0..14], b=outALU, sel=instC, out=in4A);
+    Or(a=instA, b=destA, out=loadA);
+    ARegister(in=in4A, load=loadA, out=outA, out[0..14]=addressM);
+
+    // ==================
+    // D-Register
+    DRegister(in=outALU, load=loadD, out=outD);
+
+    // ==================
+    // ALU
+    Not(in=instruction[12], out=compAsA);
+    Mux16(a=inM, b=outA, sel=compAsA, out=outAM);
+    ALU(x=outD, y=outAM, zx=instruction[11], nx=instruction[10], zy=instruction[9], ny=instruction[8], f=instruction[7], no=instruction[6], out=outM, out=outALU, zr=isZero, ng=isNegative);
+
+    // ==================
+    // decode for jump
+    Not(in=instruction[2], out=thirdZero);
+    Not(in=instruction[1], out=secondZero);
+    Not(in=instruction[0], out=firstZero);
+
+    // No Jump / Jump
+    And(a=thirdZero, b=secondZero, out=secondThirdZero);
+    And(a=secondThirdZero, b=firstZero, out=noJump);
+    And(a=instruction[2], b=instruction[1], out=secondThirdOne);
+    And(a=secondThirdOne, b=instruction[0], out=jump);
+
+    // Conditional Jump
+    Not(in=isNegative, out=isPositiveOrZero);
+    Not(in=isZero, out=isNonZero);
+    And(a=isPositiveOrZero, b=isNonZero, out=isPositive);
+
+    Nand(a=noJump, b=jump, out=applyConditional);
+
+    And(a=instruction[0], b=isPositive, out=okForFirst);
+    And(a=instruction[1], b=isZero, out=okForSecond);
+    And(a=instruction[2], b=isNegative, out=okForThird);
+
+    Or(a=okForFirst, b=okForSecond, out=okForFirstSecond);
+    Or(a=okForThird, b=okForFirstSecond, out=okFor123);
+    And(a=okFor123, b=applyConditional, out=conditionalJump);
+    
+    // ==================
+    // PC
+    Or(a=jump, b=conditionalJump, out=jumpIfInstC);
+    And(a=instC, b=jumpIfInstC, out=loadPC);
+    PC(in=outA, reset=reset, load=loadPC, inc=true, out[0..14]=pc);
 }
